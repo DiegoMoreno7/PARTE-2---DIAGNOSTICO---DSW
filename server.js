@@ -13,13 +13,14 @@ app.use(morgan('dev'));
 
 
 // === "Base de datos" ===
-let tasks = [];
-let nextId = 1; // id autoincremental
+let tareas = [];
+let siguienteId = 1; // id autoincremental
 
 
 // Buscar por id
-function findTaskById(id) {
-    return tasks.find(t => t.id === id);
+function buscarTareaPorId(id) {
+    console.log('Buscando tarea con ID:', id);
+    return tareas.find(t => t.id === id);
 }
 
 
@@ -40,51 +41,106 @@ app.param('id', (req, res, next, id) => {
 
 
 // Crear tarea
-// POST /tasks
-app.post('/tasks', (req, res) => {
-    const { title, description = '', completed = false } = req.body || {};
+// POST /tareas
+app.post('/tareas', (req, res) => {
+    const { titulo, descripcion = '', completado = false } = req.body || {};
 
 
-    if (!title || typeof title !== 'string' || !title.trim()) {
-        return res.status(400).json({ error: 'El campo "title" es requerido' });
+    if (!titulo || typeof titulo !== 'string' || !titulo.trim()) {
+        return res.status(400).json({ error: 'El campo "titulo" es requerido' });
     }
-    if (typeof completed !== 'boolean') {
-    if (completed !== undefined) {
-        return res.status(400).json({ error: 'El campo "completed" debe ser booleano.' });
+    if (typeof completado !== 'boolean') {
+    if (completado !== undefined) {
+        return res.status(400).json({ error: 'El campo "completado" debe ser booleano.' });
     }
     }
 
 
     const now = new Date().toISOString();
-    const task = {
-        id: nextId++,
-        title: title.trim(),
-        description,
-        completed: Boolean(completed),
-        createdAt: now,
-        updatedAt: now
+    const tarea = {
+        id: siguienteId++,
+        titulo: titulo.trim(),
+        descripcion,
+        completado: Boolean(completado),
+        creadoEn: now,
+        actualizadoEn: now
     };
-    tasks.push(task);
-    return res.json(task);
+    tareas.push(tarea);
+    return res.json(tarea);
 });
 
 // Leer todas las tareas
-// GET /tasks
-app.get('/tasks', (req, res) => {
-    let result = tasks;
-    return res.json(result);
+// GET /tareas
+app.get('/tareas', (req, res) => {
+    let resultado = tareas;
+    return res.json(resultado);
 });
 
 
 
 // Leer una tarea por ID
-// GET /tasks/:id
-app.get('/tasks/:id', (req, res) => {
-    const task = findTaskById(req.taskId);
-    if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
-    return res.json(task);
+// GET /tareas/:id
+app.get('/tareas/:id', (req, res) => {
+    const tarea = buscarTareaPorId(req.taskId);
+    if (!tarea) return res.status(404).json({ error: 'Tarea no encontrada' });
+    return res.json(tarea);
 });
 
+
+// Actualizar una tarea
+// PUT /tareas/:id
+app.put('/tareas/:id', (req, res) => {
+const tarea = buscarTareaPorId(req.taskId);
+if (!tarea) return res.status(404).json({ error: 'Tarea no encontrada' });
+
+
+const { titulo, descripcion, completado } = req.body || {};
+
+
+if (titulo !== undefined && (typeof titulo !== 'string' || !titulo.trim())) {
+return res.status(400).json({ error: '"titulo" debe ser string no vacío si se envía.' });
+}
+if (completado !== undefined && typeof completado !== 'boolean') {
+return res.status(400).json({ error: '"completado" debe ser boolean si se envía.' });
+}
+
+
+if (titulo !== undefined) tarea.titulo = titulo.trim();
+if (descripcion !== undefined) tarea.descripcion = descripcion;
+if (completado !== undefined) tarea.completado = completado;
+tarea.actualizadoEn = new Date().toISOString();
+
+
+return res.json(tarea);
+});
+
+
+// Eliminar una tarea
+// DELETE /tareas/:id
+app.delete('/tareas/:id', (req, res) => {
+const indice = tareas.findIndex(t => t.id === req.tareaId);
+if (indice === -1) return res.status(404).json({ error: 'Tarea no encontrada' });
+
+
+const [eliminada] = tareas.splice(indice, 1);
+return res.json({ message: 'Tarea eliminada', tarea: eliminada });
+});
+
+
+// GET /stats
+app.get('/stats', (req, res) => {
+    const total = tareas.length;
+    const completadas = tareas.filter(t => t.completado).length;
+    const pendientes = total - completadas;
+    const masReciente = total
+        ? [...tareas].sort((a, b) => new Date(b.creadoEn) - new Date(a.creadoEn))[0]
+        : null;
+    const masAntigua = total
+        ? [...tareas].sort((a, b) => new Date(a.creadoEn) - new Date(b.creadoEn))[0]
+        : null;
+
+    return res.json({ total, completadas, pendientes, masReciente, masAntigua });
+});
 
 // =========================
 // Manejo de errores y 404
